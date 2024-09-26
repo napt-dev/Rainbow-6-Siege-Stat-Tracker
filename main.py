@@ -1,6 +1,10 @@
+# ignore my shit code i promise ill get better <3
+
 import asyncio
 import decimal
 import tkinter
+import threading
+import time
 
 import aiohttp.client_exceptions
 import customtkinter as tk
@@ -8,17 +12,48 @@ import siegeapi.exceptions
 from aiohttp import ClientSession, TCPConnector
 from siegeapi import Auth
 
+logged_in = threading.Event()
+global_username = "None"
+global_password = "None"
 
 def main() -> None:
-    global in_game_name, platform, ubi, error_label
+    global in_game_name, platform, ubi, error_label, main_account,  main_account_button, main_account_textbox, main_account_checkbox_frame
     root = tk.CTk()
     root.title("Tracker")
 
-    header_frame = tk.CTkFrame(root)
-    header_frame.pack()
+    root_frame = tk.CTkFrame(root)
+    root_frame.pack(padx=20, pady=20)
 
-    checkbox_frame = tk.CTkFrame(root)
-    checkbox_frame.pack()
+    main_account_frame = tk.CTkFrame(root_frame)
+    main_account_frame.pack(side="left", padx="20", pady="10")
+
+    header_frame = tk.CTkFrame(root_frame)
+    header_frame.pack(padx=20, pady=10)
+
+    main_account_checkbox_frame = tk.CTkFrame(main_account_frame)
+
+    main_account_platform = tk.StringVar(value="N/A")
+
+    main_account_ubi = tkinter.IntVar()
+    main_account_ubi_radio_button = tk.CTkRadioButton(main_account_checkbox_frame, text="ubi", value="uplay", variable=main_account_platform)
+    main_account_ubi_radio_button.pack(side="left", padx=10, pady=10)
+
+    main_account_xbl_radio_button = tk.CTkRadioButton(main_account_checkbox_frame, text="XBOX", value="xbl", variable=main_account_platform)
+    main_account_xbl_radio_button.pack(side="left")
+
+    main_account_psn_radio_button = tk.CTkRadioButton(main_account_checkbox_frame, text="PSN", value="psn", variable=main_account_platform)
+    main_account_psn_radio_button.pack(side="left")
+
+    main_account = tk.CTkLabel(main_account_frame)
+    main_account.pack()
+
+    main_account_username = tkinter.StringVar()
+    main_account_textbox = tk.CTkEntry(main_account_frame, textvariable=main_account_username)
+
+    main_account_button = tk.CTkButton(main_account_frame, text='Link', command=lambda: link_account())
+
+    checkbox_frame = tk.CTkFrame(root_frame)
+    checkbox_frame.pack(padx=20, pady=10)
 
     in_game_name = tkinter.StringVar()
     username_entry = tk.CTkEntry(header_frame, textvariable=in_game_name)
@@ -28,13 +63,13 @@ def main() -> None:
 
     ubi = tkinter.IntVar()
     ubi_radio_button = tk.CTkRadioButton(checkbox_frame, text="ubi", value="uplay", variable=platform)
-    ubi_radio_button.pack(side=tk.LEFT, padx=10, pady=10)
+    ubi_radio_button.pack(side="left", padx=10, pady=10)
 
     xbl_radio_button = tk.CTkRadioButton(checkbox_frame, text="XBOX", value="xbl", variable=platform)
-    xbl_radio_button.pack(side=tk.LEFT)
+    xbl_radio_button.pack(side="left")
 
     psn_radio_button = tk.CTkRadioButton(checkbox_frame, text="PSN", value="psn", variable=platform)
-    psn_radio_button.pack(side=tk.LEFT)
+    psn_radio_button.pack(side="left")
 
     track_button = tk.CTkButton(header_frame, text="Track", command=lambda: asyncio.run(track_player()))
     track_button.pack(padx=10, pady=10)
@@ -43,10 +78,29 @@ def main() -> None:
     login_button.pack(padx=10, pady=10)
 
     error_label = tk.CTkLabel(header_frame, text="")
-    error_label.pack()
+    login_thread.start()
+
+    if (asyncio.run(test_login()) == "Invalid Credintials"):
+        main_account.configure(text="Please login to link stats.")
 
     root.mainloop()
 
+
+def link_account():
+    print('incomplete')
+
+def check_if_logged_in():
+    while not logged_in.is_set() :
+        time.sleep(2)
+        print("not logged in")
+    else:
+        main_account.configure(text="Link an account below")
+        main_account_textbox.pack(padx=10, pady=10)
+        main_account_checkbox_frame.pack(padx=10)
+        main_account_button.pack(padx=10, pady=10)
+
+
+login_thread = threading.Thread(target=check_if_logged_in, daemon=True)
 
 def result_window( player, ratio) -> None:
     results = tk.CTkToplevel()  # Creates a new window
@@ -96,12 +150,15 @@ def login_window() -> None:
         global_username = email.get()
         global_password = user_password.get()
         if (asyncio.run(test_login()) == "Connection Error"):
+            error_label.pack()
             error_label.configure(text="Check Your Connection")
             print(
                 "An error has occurred while attempting to log in. Check your login credential or internet connection.")
         elif (asyncio.run(test_login()) == "Invalid Credintials"):
+            error_label.pack()
             error_label.configure(text="Check User/Password")
         else:
+            logged_in.set()
             login.destroy()
 
     login = tk.CTkToplevel()
@@ -128,7 +185,6 @@ def login_window() -> None:
     enter_button = tk.CTkButton(login, text="Enter", command=lambda: on_login())
     enter_button.pack(pady=10)
 
-
 async def test_login() -> str:
     connector = TCPConnector(ssl=False)
     async with ClientSession(connector=connector) as session:
@@ -154,11 +210,15 @@ async def track_player() -> None:  # tracks a player
             player = await auth.get_player(name=in_game_name.get(), platform=platform.get())
         except TypeError:
             print("missing value")
+            error_label.pack()
+            error_label.configure(text='Please select a platform')
         except siegeapi.exceptions.InvalidRequest:
             print("No results found")
+            error_label.pack()
             error_label.configure(text="No Resuts found")
         except NameError:
             print("please login to your ubisoft account")
+            error_label.pack()
             error_label.configure(text="Please login to ubisoft")
         else:
             print(f"Name: {player.name}")
