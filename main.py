@@ -1,4 +1,4 @@
-# ignore my shit code i promise ill get better <3
+# ignore my shit code I promise ill get better <3
 
 import asyncio
 import decimal
@@ -17,7 +17,7 @@ global_username = "None"
 global_password = "None"
 
 def main() -> None:
-    global in_game_name, platform, ubi, error_label, main_account,  main_account_button, main_account_textbox, main_account_checkbox_frame
+    global in_game_name, platform, ubi, error_label, main_account,  main_account_button, main_account_textbox, main_account_checkbox_frame, main_account_username, main_account_ubi
     root = tk.CTk()
     root.title("Tracker")
 
@@ -32,16 +32,15 @@ def main() -> None:
 
     main_account_checkbox_frame = tk.CTkFrame(main_account_frame)
 
-    main_account_platform = tk.StringVar(value="N/A")
 
-    main_account_ubi = tkinter.IntVar()
-    main_account_ubi_radio_button = tk.CTkRadioButton(main_account_checkbox_frame, text="ubi", value="uplay", variable=main_account_platform)
+    main_account_ubi = tkinter.StringVar()
+    main_account_ubi_radio_button = tk.CTkRadioButton(main_account_checkbox_frame, text="ubi", value="uplay", variable=main_account_ubi)
     main_account_ubi_radio_button.pack(side="left", padx=10, pady=10)
 
-    main_account_xbl_radio_button = tk.CTkRadioButton(main_account_checkbox_frame, text="XBOX", value="xbl", variable=main_account_platform)
+    main_account_xbl_radio_button = tk.CTkRadioButton(main_account_checkbox_frame, text="XBOX", value="xbl", variable=main_account_ubi)
     main_account_xbl_radio_button.pack(side="left")
 
-    main_account_psn_radio_button = tk.CTkRadioButton(main_account_checkbox_frame, text="PSN", value="psn", variable=main_account_platform)
+    main_account_psn_radio_button = tk.CTkRadioButton(main_account_checkbox_frame, text="PSN", value="psn", variable=main_account_ubi)
     main_account_psn_radio_button.pack(side="left")
 
     main_account = tk.CTkLabel(main_account_frame)
@@ -50,7 +49,7 @@ def main() -> None:
     main_account_username = tkinter.StringVar()
     main_account_textbox = tk.CTkEntry(main_account_frame, textvariable=main_account_username)
 
-    main_account_button = tk.CTkButton(main_account_frame, text='Link', command=lambda: link_account())
+    main_account_button = tk.CTkButton(main_account_frame, text='Link', command=lambda: asyncio.run(link_account()))
 
     checkbox_frame = tk.CTkFrame(root_frame)
     checkbox_frame.pack(padx=20, pady=10)
@@ -85,9 +84,6 @@ def main() -> None:
 
     root.mainloop()
 
-
-def link_account():
-    print('incomplete')
 
 def check_if_logged_in():
     while not logged_in.is_set() :
@@ -201,6 +197,31 @@ async def test_login() -> str:
         await auth.close()
 
 
+async def link_account() -> None:  # tracks a player
+    connector = TCPConnector(ssl=False)
+    async with ClientSession(connector=connector) as session:
+
+        try:
+            auth = Auth(global_username, global_password, session=session)
+            main_account_player = await auth.get_player(name=main_account_username.get(), platform=main_account_ubi.get())
+        except TypeError:
+            print("missing value")
+            error_label.pack()
+            error_label.configure(text='Please select a platform')
+        except siegeapi.exceptions.InvalidRequest:
+            print("No results found")
+            error_label.pack()
+            error_label.configure(text="No Resuts found")
+        except NameError:
+            print("please login to your ubisoft account")
+            error_label.pack()
+            error_label.configure(text="Please login to ubisoft")
+        else:
+            print(f'{main_account_player.name}')
+            print('working on it bra')
+        await auth.close()
+
+
 async def track_player() -> None:  # tracks a player
     connector = TCPConnector(ssl=False)
     async with ClientSession(connector=connector) as session:
@@ -215,7 +236,7 @@ async def track_player() -> None:  # tracks a player
         except siegeapi.exceptions.InvalidRequest:
             print("No results found")
             error_label.pack()
-            error_label.configure(text="No Resuts found")
+            error_label.configure(text="No Results found")
         except NameError:
             print("please login to your ubisoft account")
             error_label.pack()
@@ -226,17 +247,11 @@ async def track_player() -> None:  # tracks a player
 
             await asyncio.sleep(1)
             await player.load_playtime()
-            print(f"Total Time Played: {player.total_time_played:,} seconds")
-            print(f"Level: {player.level}")
+            print('loading playtime')
 
             await asyncio.sleep(1)
             await player.load_ranked_v2()
-            print(f"Ranked Points: {player.ranked_profile.rank_points}")
-            print(f"Rank: {player.ranked_profile.rank}")
-            print(f"Max Rank Points: {player.ranked_profile.max_rank_points}")
-            print(f"Max Rank: {player.ranked_profile.max_rank}")
-            print(f"Total Kills: {player.ranked_profile.kills}")
-            print(f"Total Deaths: {player.ranked_profile.deaths}")
+            print('loading ranked statistics')
 
             def find_games_played():
                 wins = int(player.ranked_profile.wins)
